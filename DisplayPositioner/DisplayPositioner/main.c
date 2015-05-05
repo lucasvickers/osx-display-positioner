@@ -1,46 +1,106 @@
 //
 //  main.c
-//  DisplayPositioner
+//  displaypositioner
 //
 //  Created by Lucas Vickers on 5/5/15.
 //  Copyright (c) 2015 Lucas Vickers. All rights reserved.
 //
 
-
-
-// fb-rotate.c
-//
-// Compile with:
-// gcc -w -o fb-rotate fb-rotate.c -framework IOKit -framework ApplicationServices
-
 #include <stdio.h>
 #include <getopt.h>
 #include <IOKit/graphics/IOGraphicsLib.h>
 #include <ApplicationServices/ApplicationServices.h>
+#include <CoreServices/CoreServices.h>
 
 #define PROGNAME "DisplayPositioner"
 #define MAX_DISPLAYS 16
 
-// kIOFBSetTransform comes from <IOKit/graphics/IOGraphicsTypesPrivate.h>
-// in the source for the IOGraphics family
+// make my life easier
+uint32_t SYSTEM_DISPLAY_VALUES[MAX_DISPLAYS][3];
+uint32_t STORED_SYSTEM_DISPLAY_VALUES;
 
+uint32_t CONFIG_DISPLAY_VALUES[MAX_DISPLAYS][3];
+uint32_t STORED_CONFIG_DISPLAY_VALUES;
 
 enum {
     kIOFBSetTransform = 0x00000400,
 };
 
+
+////// HELPER FUNCTIONS
+
 void
-usage(void)
+getConfigPath( char* str, uint strSize )
 {
-    fprintf(stderr,
-            "usage: %s -l\n"
-            "       %s -r\n",
-            PROGNAME, PROGNAME);
-    exit(1);
+    FSRef ref;
+    OSType folderType = kApplicationSupportFolderType;
+    
+    FSFindFolder( kUserDomain, folderType, kCreateFolder, &ref );
+    FSRefMakePath( &ref, (UInt8*)str, strSize );
+}
+
+
+FILE*
+getConfigFP( const char* mode )
+{
+    char datafolder[300];
+    getConfigPath( datafolder, sizeof( datafolder ) );
+    printf( "%s\n", datafolder );
+    
+    char path[350];
+    snprintf( path, sizeof( path ), "%s/display.positioner.config", datafolder );
+    
+    FILE *fp;
+    fp = fopen( path, "w" );
+    if( fp == NULL ) {
+        printf( "Unable to open config file in mode %s\n", mode );
+        printf( "File was: %s\n", path );
+        exit( 0 );
+    }
+    return fp;
 }
 
 void
-listDisplays(void)
+pullDisplaySettings()
+{
+    CGDisplayErr      dErr;
+    CGDisplayCount    displayCount;
+    CGDisplayCount    maxDisplays = MAX_DISPLAYS;
+    CGDirectDisplayID onlineDisplays[MAX_DISPLAYS];
+    
+    dErr = CGGetOnlineDisplayList( maxDisplays, onlineDisplays, &displayCount );
+    if( dErr ) {
+        fprintf( stderr, "Error getting display list." );
+        exit( 1 );
+    }
+
+    for( int i=0; i<displayCount; ++i ) {
+        
+        DISPLAY_VALUES[i][0] = onlineDisplays[i];
+        DISPLAY_VALUES[i][1] = CGRectGetMinX ( CGDisplayBounds ( onlineDisplays[i] ) );
+        DISPLAY_VALUES[i][2] = CGRectGetMinY ( CGDisplayBounds ( onlineDisplays[i] ) );
+    }
+    STORED_VALUES = displayCount;
+}
+
+void
+loadConfigSettings()
+{
+    
+}
+
+void
+saveConfigSettings()
+{
+    
+}
+
+
+/////// END POINT FUNCTIONS
+
+// list all display information
+void
+listDisplays( void )
 {
     CGDisplayErr      dErr;
     CGDisplayCount    displayCount, i;
@@ -48,21 +108,21 @@ listDisplays(void)
     CGDisplayCount    maxDisplays = MAX_DISPLAYS;
     CGDirectDisplayID onlineDisplays[MAX_DISPLAYS];
     
-    CGEventRef ourEvent = CGEventCreate(NULL);
-    CGPoint ourLoc = CGEventGetLocation(ourEvent);
-    
-    CFRelease(ourEvent);
+    // TODO test if I can remove this event stuff
+    CGEventRef ourEvent = CGEventCreate( NULL );
+    CGPoint ourLoc = CGEventGetLocation( ourEvent );
+    CFRelease( ourEvent );
     
     mainDisplay = CGMainDisplayID();
     
-    dErr = CGGetOnlineDisplayList(maxDisplays, onlineDisplays, &displayCount);
-    if (dErr != kCGErrorSuccess) {
-        fprintf(stderr, "CGGetOnlineDisplayList: error %d.\n", dErr);
-        exit(1);
+    dErr = CGGetOnlineDisplayList( maxDisplays, onlineDisplays, &displayCount );
+    if( dErr != kCGErrorSuccess ) {
+        fprintf( stderr, "CGGetOnlineDisplayList: error %d.\n", dErr );
+        exit( 1 );
     }
     
     printf("#  Display_ID   Display_ID   Resolution   Display_Origin   _____Display_Bounds_____    Rotation   Details\n");
-    for (i = 0; i < displayCount; i++) {
+    for ( i=0; i<displayCount; i++ ) {
         CGDirectDisplayID dID = onlineDisplays[i];
         printf("%-2d 0x%-10x %d    %4lux%-4lu    %5.0f %5.0f      %5.0f %5.0f %5.0f %5.0f   %3.0f          %s%s%s",
                // id
@@ -87,94 +147,157 @@ listDisplays(void)
                (CGDisplayIsBuiltin (dID)) ? "[internal]\n" : "\n");
     }
     
-    printf("Mouse Cursor Position:  ( %5.0f , %5.0f )\n",
-           (float)ourLoc.x, (float)ourLoc.y);
+    printf( "Mouse Cursor Position:  ( %5.0f , %5.0f )\n",
+            (float)ourLoc.x, (float)ourLoc.y );
     
-    exit(0);
+    exit( 0 );
 }
 
-void runChange(void)
+// update monitor positions to match config file positions
+void
+updatePositions( void )
 {
-    int numMonitors = 2;
-    int monitors[2][3] = {
-        { 441005125, 0, 0 },
-        { 441005124, -1920, 0}
-    };
-
+    // load from the config file and save it in temp
+    loadConfigSettings();
+    
+    // pull our current settings
+    pullDisplaySettings();
+    
+    // if we have a logic match
+    //   apply
+    
     uint32_t displayCount;
-    CGGetActiveDisplayList(0, NULL, &displayCount);
+    CGGetActiveDisplayList( 0, NULL, &displayCount );
     
     CGDirectDisplayID activeDisplays[displayCount];
-    CGGetActiveDisplayList(displayCount, activeDisplays, &displayCount);
+    CGGetActiveDisplayList( displayCount, activeDisplays, &displayCount );
+    
+    
+    if( displayCount != STORED_VALUES ) {
+        fprintf( stderr, "There are %d active monitors and %d stored values, "
+                         "they do not match, exiting.\n",
+                         displayCount, STORED_VALUES );
+        exit( 1 );
+    }
+    
+    int matchCount = 0;
+    for( int i=0; i<displayCount; ++i ) {
+        for( int j=0; j<STORED_VALUES; ++j ) {
+            if( activeDisplays[i] == DISPLAY_VALUES[j][0] ) {
+                ++matchCount;
+                break;
+            }
+        }
+    }
+    
+    if( matchCount != displayCount ) {
+        fprintf( stderr, "Couldn't match all stored IDs to active IDs, exiting.\n" );
+        exit( 1 );
+    }
     
     for( int i=0; i<displayCount; ++i ) {
-        
-        printf("%d", activeDisplays[i]);
-        
-        bool found = false;
-        for( int j=0; j<numMonitors; ++j ) {
-  
-            if( activeDisplays[i] == monitors[j][0] ) {
+
+        for( int j=0; j<STORED_VALUES; ++j ) {
+            
+            if( activeDisplays[i] == DISPLAY_VALUES[j][0] ) {
                 
-                printf(" - setting display to origin \t%d \t%d\n",
-                       monitors[j][1], monitors[j][2]);
+                printf( "%d - setting display to origin \t%d \t%d\n",
+                        DISPLAY_VALUES[j][0], DISPLAY_VALUES[j][1], DISPLAY_VALUES[j][2] );
                 
                 // magic
                 CGDisplayConfigRef config;
-                CGBeginDisplayConfiguration(&config);
-                CGConfigureDisplayOrigin( config, activeDisplays[i], monitors[j][1], monitors[j][2] );
-                CGCompleteDisplayConfiguration(config, kCGConfigurePermanently);
-                
-                found = true;
+                CGBeginDisplayConfiguration( &config );
+                CGConfigureDisplayOrigin( config, activeDisplays[i], DISPLAY_VALUES[j][1], DISPLAY_VALUES[j][2] );
+                CGCompleteDisplayConfiguration( config, kCGConfigurePermanently );
             }
         }
-        if( ! found ) {
-            printf(" - skipping\n");
-        }
     }
     
-    exit(0);
+    exit( 0 );
 }
 
 
-CGDirectDisplayID
-cgIDfromU32(uint32_t preId)
+// compare config file settings to monitor settings, update if needed
+void
+compareUpdatePositions()
 {
-    CGDisplayErr      dErr;
-    CGDisplayCount    displayCount, i;
-    CGDisplayCount    maxDisplays = MAX_DISPLAYS;
-    CGDirectDisplayID onlineDisplays[MAX_DISPLAYS];
-    CGDirectDisplayID postId = preId;
+    // load from the config file and save it in temp
+    loadConfigSettings();
     
-    dErr = CGGetOnlineDisplayList(maxDisplays, onlineDisplays, &displayCount);
-    if (dErr != kCGErrorSuccess) {
-        fprintf(stderr, "CGGetOnlineDisplayList: error %d.\n", dErr);
-        exit(1);
-    }
-    for (i = 0; i < displayCount; i++) {
-        CGDirectDisplayID dID = onlineDisplays[i];
-        if ((dID == preId) || (dID == postId) ||
-            (onlineDisplays[i] == preId) || (onlineDisplays[i] == postId)) {
-            return dID;
-        }
-    }
-    fprintf(stderr, " Could not find a matching id in onlineDisplays!\n");
-    exit(1);
+    // pull our current settings
+    pullDisplaySettings();
+    
+    // compare and update all if needed
+    // if compare shows a need
+    //  and we have a logic match
+    //   apply
+    
+    
+    exit( 0 );
 }
 
+// compare config file settings to monitor settings, do not update
+void
+testComparePositions()
+{
+    loadConfigSettings();
+    pullDisplaySettings();
+    
+    // compare and report
+    
+    exit( 0 );
+}
+
+// save current monitor settings to config file
+void
+savePositions()
+{
+    pullDisplaySettings();
+    // copy display to config values
+    saveConfigSettings();
+    
+    exit( 0 );
+}
+
+
+///// MAIN FUNCTIONS
+
+void
+usage( void )
+{
+    fprintf( stderr,
+             "usage: %s -l (list display information)\n"
+             "       %s -r (run and apply changes from file)\n"
+             "       %s -c (compare current configuration to config file, apply changes if needed)\n"
+             "       %s -t (test current configruations to config file, make no changes)\n"
+             "       %s -s (save current configuration to config file)\n",
+             PROGNAME, PROGNAME, PROGNAME, PROGNAME, PROGNAME );
+    exit( 1 );
+}
 
 int
-main(int argc, char **argv)
+main( int argc, char **argv )
 {
-    int  i;
+    // don't run if the data is bad somehow
+    STORED_VALUES = 0;
     
-    while ((i = getopt(argc, argv, ":lr")) != -1) {
-        switch (i) {
+    int  i;
+    while ( ( i = getopt(argc, argv, "lrcst" ) ) != -1 ) {
+        switch( i ) {
             case 'l':
                 listDisplays();
                 break;
             case 'r':
-                runChange();
+                updatePositions();
+                break;
+            case 'c':
+                compareUpdatePositions();
+                break;
+            case 't':
+                testComparePositions();
+                break;
+            case 's':
+                savePositions();
                 break;
             default:
                 break;
@@ -183,5 +306,6 @@ main(int argc, char **argv)
     
     usage();
     
-    exit(0);
+    exit( 0 );
 }
+

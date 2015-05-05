@@ -14,10 +14,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "5FDBFE7B1AF8F8BA00DC7CEF"
-               BuildableName = "DisplayPositioner"
-               BlueprintName = "DisplayPositioner"
-               ReferencedContainer = "container:DisplayPositioner.xcodeproj">
+               BlueprintIdentifier = "5FF9A9901AF9205000679731"
+               BuildableName = "displaypositioner"
+               BlueprintName = "displaypositioner"
+               ReferencedContainer = "container:displaypositioner.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -32,10 +32,10 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "5FDBFE7B1AF8F8BA00DC7CEF"
-            BuildableName = "DisplayPositioner"
-            BlueprintName = "DisplayPositioner"
-            ReferencedContainer = "container:DisplayPositioner.xcodeproj">
+            BlueprintIdentifier = "5FF9A9901AF9205000679731"
+            BuildableName = "displaypositioner"
+            BlueprintName = "displaypositioner"
+            ReferencedContainer = "container:displaypositioner.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
    </TestAction>
@@ -52,10 +52,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "5FDBFE7B1AF8F8BA00DC7CEF"
-            BuildableName = "DisplayPositioner"
-            BlueprintName = "DisplayPositioner"
-            ReferencedContainer = "container:DisplayPositioner.xcodeproj">
+            BlueprintIdentifier = "5FF9A9901AF9205000679731"
+            BuildableName = "displaypositioner"
+            BlueprintName = "displaypositioner"
+            ReferencedContainer = "container:displaypositioner.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <AdditionalOptions>
@@ -71,10 +71,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "5FDBFE7B1AF8F8BA00DC7CEF"
-            BuildableName = "DisplayPositioner"
-            BlueprintName = "DisplayPositioner"
-            ReferencedContainer = "container:DisplayPositioner.xcodeproj">
+            BlueprintIdentifier = "5FF9A9901AF9205000679731"
+            BuildableName = "displaypositioner"
+            BlueprintName = "displaypositioner"
+            ReferencedContainer = "container:displaypositioner.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
