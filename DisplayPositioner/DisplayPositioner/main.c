@@ -6,6 +6,9 @@
 //  Copyright (c) 2015 Lucas Vickers. All rights reserved.
 //
 
+// compile with:
+// gcc -w -o displaypositioner main.c -framework IOKit -framework ApplicationServices
+
 #include <stdio.h>
 #include <getopt.h>
 #include <IOKit/graphics/IOGraphicsLib.h>
@@ -16,11 +19,11 @@
 #define MAX_DISPLAYS 16
 
 // make my life easier
-uint32_t SYSTEM_DISPLAY_VALUES[MAX_DISPLAYS][3];
-uint32_t STORED_SYSTEM_DISPLAY_VALUES;
+int32_t SYSTEM_VALUES[MAX_DISPLAYS][3];
+uint32_t STORED_SYSTEM_VALUES;
 
-uint32_t CONFIG_DISPLAY_VALUES[MAX_DISPLAYS][3];
-uint32_t STORED_CONFIG_DISPLAY_VALUES;
+int32_t CONFIG_VALUES[MAX_DISPLAYS][3];
+uint32_t STORED_CONFIG_VALUES;
 
 enum {
     kIOFBSetTransform = 0x00000400,
@@ -29,6 +32,7 @@ enum {
 
 ////// HELPER FUNCTIONS
 
+// gets the Application Support path for current user
 void
 getConfigPath( char* str, uint strSize )
 {
@@ -40,26 +44,29 @@ getConfigPath( char* str, uint strSize )
 }
 
 
+// opens file "~/Application Support/display.positioner.config"
+// in a given mode returns the FILE pointer
 FILE*
 getConfigFP( const char* mode )
 {
     char datafolder[300];
     getConfigPath( datafolder, sizeof( datafolder ) );
-    printf( "%s\n", datafolder );
     
     char path[350];
     snprintf( path, sizeof( path ), "%s/display.positioner.config", datafolder );
     
     FILE *fp;
-    fp = fopen( path, "w" );
+    fp = fopen( path, mode );
     if( fp == NULL ) {
         printf( "Unable to open config file in mode %s\n", mode );
         printf( "File was: %s\n", path );
-        exit( 0 );
+        exit( 1 );
     }
     return fp;
 }
 
+
+// reads display values into memory
 void
 pullDisplaySettings()
 {
@@ -76,23 +83,155 @@ pullDisplaySettings()
 
     for( int i=0; i<displayCount; ++i ) {
         
-        DISPLAY_VALUES[i][0] = onlineDisplays[i];
-        DISPLAY_VALUES[i][1] = CGRectGetMinX ( CGDisplayBounds ( onlineDisplays[i] ) );
-        DISPLAY_VALUES[i][2] = CGRectGetMinY ( CGDisplayBounds ( onlineDisplays[i] ) );
+        SYSTEM_VALUES[i][0] = onlineDisplays[i];
+        SYSTEM_VALUES[i][1] = CGRectGetMinX ( CGDisplayBounds ( onlineDisplays[i] ) );
+        SYSTEM_VALUES[i][2] = CGRectGetMinY ( CGDisplayBounds ( onlineDisplays[i] ) );
     }
-    STORED_VALUES = displayCount;
+    STORED_SYSTEM_VALUES = displayCount;
 }
 
+
+// read config value into memory
 void
 loadConfigSettings()
 {
+    FILE *fp = getConfigFP( "r" );
+    char str[200];
+    char *token;
+    int line = 0;
+
+    while( fgets( str , sizeof( str ) , fp ) != NULL ) {
+        
+        if( line > MAX_DISPLAYS ) {
+            fprintf( stderr, "Error parsing config file, too many monitors." );
+            exit(1);
+        }
+        
+        token = strtok(str, ",");
+        int index = 0;
+        while( token != NULL ) {
+            // a little sanity check, not much
+            if( index > 2 ) {
+                fprintf( stderr, "Error parsing config file, too many values." );
+                exit(1);
+            }
+            
+            CONFIG_VALUES[line][index] = atoi(token);
+            
+            ++index;
+            token = strtok(NULL, ",");
+        }
+        
+        ++line;
+    }
     
+    STORED_CONFIG_VALUES = line;
+
+    fclose( fp );
 }
 
+
+// writes config values to file
 void
 saveConfigSettings()
 {
+    FILE *fp = getConfigFP( "w" );
+    for( int i=0; i<STORED_CONFIG_VALUES; ++i ) {
+        fprintf( fp, "%d, %d, %d\n",
+                 CONFIG_VALUES[i][0], CONFIG_VALUES[i][1], CONFIG_VALUES[i][2] );
+    }
     
+    printf("Stored %d display settings to config.\n", STORED_CONFIG_VALUES);
+    
+    fclose( fp );
+}
+
+
+// applies config values to system
+// does no checks, just applies settings to matching IDs
+void
+applyDisplaySettings()
+{
+    uint32_t displayCount;
+    CGGetActiveDisplayList( 0, NULL, &displayCount );
+    
+    CGDirectDisplayID activeDisplays[displayCount];
+    CGGetActiveDisplayList( displayCount, activeDisplays, &displayCount );
+    
+    for( int i=0; i<displayCount; ++i ) {
+        
+        for( int j=0; j<STORED_CONFIG_VALUES; ++j ) {
+            
+            if( activeDisplays[i] == CONFIG_VALUES[j][0] ) {
+                
+                printf( "%d - setting display to origin \t%d \t%d\n",
+                        CONFIG_VALUES[j][0], CONFIG_VALUES[j][1], CONFIG_VALUES[j][2] );
+                
+                // magic
+                CGDisplayConfigRef config;
+                CGBeginDisplayConfiguration( &config );
+                CGConfigureDisplayOrigin( config, activeDisplays[i], CONFIG_VALUES[j][1], CONFIG_VALUES[j][2] );
+                CGCompleteDisplayConfiguration( config, kCGConfigurePermanently );
+                
+                break;
+            }
+        }
+    }
+}
+
+
+// compares config values and screen values
+// returns true if their ids match
+bool
+compareDisplaySettingIDs()
+{
+    
+    if( STORED_CONFIG_VALUES != STORED_SYSTEM_VALUES ) {
+        return false;
+    }
+    
+    int matchCount = 0;
+    for( int i=0; i<STORED_CONFIG_VALUES; ++i ) {
+        for( int j=0; j<STORED_SYSTEM_VALUES; ++j ) {
+            if( CONFIG_VALUES[i][0] == SYSTEM_VALUES[j][0] ) {
+                ++matchCount;
+                break;
+            }
+        }
+    }
+    
+    if( matchCount != STORED_SYSTEM_VALUES ) {
+        return false;
+    }
+    
+    return true;
+}
+
+
+// compares config values and screen values
+// returns true if their ids and values match
+bool
+compareDisplaySettingValues()
+{
+    if( ! compareDisplaySettingIDs() ) {
+        return false;
+    }
+
+    int matchCount = 0;
+    for( int i=0; i<STORED_CONFIG_VALUES; ++i ) {
+        for( int j=0; j<STORED_SYSTEM_VALUES; ++j ) {
+            // could just do a memcmp...
+            if( CONFIG_VALUES[i][0] == SYSTEM_VALUES[j][0] &&
+                CONFIG_VALUES[i][1] == SYSTEM_VALUES[j][1] &&
+                CONFIG_VALUES[i][2] == SYSTEM_VALUES[j][2] )
+            {
+                ++matchCount;
+                break;
+            }
+        }
+    }
+    
+    return matchCount == STORED_SYSTEM_VALUES;
 }
 
 
@@ -102,13 +241,13 @@ saveConfigSettings()
 void
 listDisplays( void )
 {
+    
     CGDisplayErr      dErr;
     CGDisplayCount    displayCount, i;
     CGDirectDisplayID mainDisplay;
     CGDisplayCount    maxDisplays = MAX_DISPLAYS;
     CGDirectDisplayID onlineDisplays[MAX_DISPLAYS];
     
-    // TODO test if I can remove this event stuff
     CGEventRef ourEvent = CGEventCreate( NULL );
     CGPoint ourLoc = CGEventGetLocation( ourEvent );
     CFRelease( ourEvent );
@@ -153,6 +292,7 @@ listDisplays( void )
     exit( 0 );
 }
 
+
 // update monitor positions to match config file positions
 void
 updatePositions( void )
@@ -163,55 +303,14 @@ updatePositions( void )
     // pull our current settings
     pullDisplaySettings();
     
-    // if we have a logic match
-    //   apply
-    
-    uint32_t displayCount;
-    CGGetActiveDisplayList( 0, NULL, &displayCount );
-    
-    CGDirectDisplayID activeDisplays[displayCount];
-    CGGetActiveDisplayList( displayCount, activeDisplays, &displayCount );
-    
-    
-    if( displayCount != STORED_VALUES ) {
-        fprintf( stderr, "There are %d active monitors and %d stored values, "
-                         "they do not match, exiting.\n",
-                         displayCount, STORED_VALUES );
+    if( ! compareDisplaySettingIDs() ) {
+        fprintf( stderr, "Config file has %d monitors, system has %d, can't continue.\n",
+                 STORED_CONFIG_VALUES, STORED_SYSTEM_VALUES );
         exit( 1 );
     }
     
-    int matchCount = 0;
-    for( int i=0; i<displayCount; ++i ) {
-        for( int j=0; j<STORED_VALUES; ++j ) {
-            if( activeDisplays[i] == DISPLAY_VALUES[j][0] ) {
-                ++matchCount;
-                break;
-            }
-        }
-    }
-    
-    if( matchCount != displayCount ) {
-        fprintf( stderr, "Couldn't match all stored IDs to active IDs, exiting.\n" );
-        exit( 1 );
-    }
-    
-    for( int i=0; i<displayCount; ++i ) {
-
-        for( int j=0; j<STORED_VALUES; ++j ) {
-            
-            if( activeDisplays[i] == DISPLAY_VALUES[j][0] ) {
-                
-                printf( "%d - setting display to origin \t%d \t%d\n",
-                        DISPLAY_VALUES[j][0], DISPLAY_VALUES[j][1], DISPLAY_VALUES[j][2] );
-                
-                // magic
-                CGDisplayConfigRef config;
-                CGBeginDisplayConfiguration( &config );
-                CGConfigureDisplayOrigin( config, activeDisplays[i], DISPLAY_VALUES[j][1], DISPLAY_VALUES[j][2] );
-                CGCompleteDisplayConfiguration( config, kCGConfigurePermanently );
-            }
-        }
-    }
+    applyDisplaySettings();
+    printf( "Display settings have been applied.\n" );
     
     exit( 0 );
 }
@@ -221,20 +320,27 @@ updatePositions( void )
 void
 compareUpdatePositions()
 {
-    // load from the config file and save it in temp
+
     loadConfigSettings();
-    
-    // pull our current settings
     pullDisplaySettings();
     
-    // compare and update all if needed
-    // if compare shows a need
-    //  and we have a logic match
-    //   apply
+    if( ! compareDisplaySettingIDs() ) {
+        fprintf( stderr, "Config file has %d monitors, system has %d, not updating.\n",
+                STORED_CONFIG_VALUES, STORED_SYSTEM_VALUES );
+        exit( 0 );
+    }
     
+    if( compareDisplaySettingValues() ) {
+        printf( "Monitor values match, not updating.\n" );
+        exit( 0 );
+    }
+    
+    printf( "Monitor values differ, updating.\n" );
+    applyDisplaySettings();
     
     exit( 0 );
 }
+
 
 // compare config file settings to monitor settings, do not update
 void
@@ -243,17 +349,52 @@ testComparePositions()
     loadConfigSettings();
     pullDisplaySettings();
     
-    // compare and report
+    if( ! compareDisplaySettingIDs() ) {
+        printf( "Config file has %d monitors, system has %d, would not update.\n",
+                STORED_CONFIG_VALUES, STORED_SYSTEM_VALUES );
+        exit( 0 );
+    }
+    
+    if( compareDisplaySettingValues() ) {
+        printf( "Monitor values match, would not update.\n" );
+        exit( 0 );
+    }
+    
+    printf( "Monitor values differ, would update.\n" );
+    
+    printf( "Display_ID  Config_Origin  Display_Origin\n");
+    
+    for( int i=0; i<STORED_CONFIG_VALUES; ++i ) {
+        for( int j=0; j<STORED_SYSTEM_VALUES; ++j ) {
+            // could just do a memcmp...
+            if( CONFIG_VALUES[i][0] == SYSTEM_VALUES[j][0] ) {
+                
+                if( CONFIG_VALUES[i][1] != SYSTEM_VALUES[j][1]
+                    || CONFIG_VALUES[i][2] != SYSTEM_VALUES[j][2] )
+                {
+                    printf( "%d   %5d %5d    %5d %5d\n",
+                           CONFIG_VALUES[i][0], CONFIG_VALUES[i][1], CONFIG_VALUES[i][2],
+                           SYSTEM_VALUES[i][1], SYSTEM_VALUES[i][2] );
+                }
+
+                break;
+            }
+        }
+    }
     
     exit( 0 );
 }
+
 
 // save current monitor settings to config file
 void
 savePositions()
 {
     pullDisplaySettings();
-    // copy display to config values
+    
+    STORED_CONFIG_VALUES = STORED_SYSTEM_VALUES;
+    memcpy( CONFIG_VALUES, SYSTEM_VALUES, sizeof( CONFIG_VALUES ) );
+    
     saveConfigSettings();
     
     exit( 0 );
@@ -267,7 +408,7 @@ usage( void )
 {
     fprintf( stderr,
              "usage: %s -l (list display information)\n"
-             "       %s -r (run and apply changes from file)\n"
+             "       %s -a (apply settings from file)\n"
              "       %s -c (compare current configuration to config file, apply changes if needed)\n"
              "       %s -t (test current configruations to config file, make no changes)\n"
              "       %s -s (save current configuration to config file)\n",
@@ -279,15 +420,16 @@ int
 main( int argc, char **argv )
 {
     // don't run if the data is bad somehow
-    STORED_VALUES = 0;
+    STORED_CONFIG_VALUES = 0;
+    STORED_SYSTEM_VALUES = 0;
     
     int  i;
-    while ( ( i = getopt(argc, argv, "lrcst" ) ) != -1 ) {
+    while ( ( i = getopt(argc, argv, "lacts" ) ) != -1 ) {
         switch( i ) {
             case 'l':
                 listDisplays();
                 break;
-            case 'r':
+            case 'a':
                 updatePositions();
                 break;
             case 'c':
