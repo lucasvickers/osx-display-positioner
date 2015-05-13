@@ -1,6 +1,18 @@
 # osx-display-positioner
 Command line tool for adjusting display positions in OS X.
 
+### Componenets
+#### displaypositioner
+#### displaymonitor
+
+
+### Motivation
+Working on an install that involves 3 mac pros each driving 6 screens.  We noticed that the machine periodically loses the screen position settings.  The displaypositioner app was written to identify the issue and fix the screen positions if needed.
+
+In our specific example, it appears the low level bug prevented the errant screen from being placed in the correct location.  We were somewhat lucky enough that a system restart seemed to fix the screen positions again.  After this finding, the displaywatcher python tool was created.  This tool uses the displaypositioner app to see if the monitors have lost position.  If they are, it will restart the machine up to 3 times and send out email notifications alerting the admins of the issue.
+
+
+### displaypositioner
 
 #### Overview
 The need for this project originated out of an install where the mac pro kept forgetting and remembering a specified display layout.
@@ -21,6 +33,7 @@ usage: DisplayPositioner -l (list display information)
        DisplayPositioner -a (apply settings from file)
        DisplayPositioner -c (compare current configuration to config file, apply changes if needed)
        DisplayPositioner -t (test current configruations to config file, make no changes)
+       DisplayPositioner -p (programatic test, return str of "true" if displays match config or "false" otherwise)
        DisplayPositioner -s (save current configuration to config file)
 ```
 
@@ -48,7 +61,14 @@ Monitor values differ, would update.
 Display_ID  Config_Origin  Display_Origin
 441005124   -1920     0    -1920  -579
 ```
+#####-p : Identical to test, but returns a simple true or false (string) if the monitors match the config settings
+```
+true
+```
 #####-s : Saves current display settings to the config file.
 ```
 Stored 2 display settings to config.
 ```
+
+
+### displaywatcher

@@ -344,42 +344,54 @@ compareUpdatePositions()
 
 // compare config file settings to monitor settings, do not update
 void
-testComparePositions()
+testComparePositions(bool humanReadable)
 {
     loadConfigSettings();
     pullDisplaySettings();
     
     if( ! compareDisplaySettingIDs() ) {
-        printf( "Config file has %d monitors, system has %d, would not update.\n",
-                STORED_CONFIG_VALUES, STORED_SYSTEM_VALUES );
+        if( humanReadable ) {
+            printf( "Config file has %d monitors, system has %d, would not update.\n",
+                    STORED_CONFIG_VALUES, STORED_SYSTEM_VALUES );
+        } else {
+            printf( "false" );
+        }
         exit( 0 );
     }
     
     if( compareDisplaySettingValues() ) {
-        printf( "Monitor values match, would not update.\n" );
+        if( humanReadable ) {
+            printf( "Monitor values match, would not update.\n" );
+        } else {
+            printf( "true" );
+        }
         exit( 0 );
     }
     
-    printf( "Monitor values differ, would update.\n" );
-    
-    printf( "Display_ID  Config_Origin  Display_Origin\n");
-    
-    for( int i=0; i<STORED_CONFIG_VALUES; ++i ) {
-        for( int j=0; j<STORED_SYSTEM_VALUES; ++j ) {
-            // could just do a memcmp...
-            if( CONFIG_VALUES[i][0] == SYSTEM_VALUES[j][0] ) {
-                
-                if( CONFIG_VALUES[i][1] != SYSTEM_VALUES[j][1]
-                    || CONFIG_VALUES[i][2] != SYSTEM_VALUES[j][2] )
-                {
-                    printf( "%d   %5d %5d    %5d %5d\n",
-                           CONFIG_VALUES[i][0], CONFIG_VALUES[i][1], CONFIG_VALUES[i][2],
-                           SYSTEM_VALUES[i][1], SYSTEM_VALUES[i][2] );
-                }
+    if( humanReadable ) {
+        printf( "Monitor values differ, would update.\n" );
+        
+        printf( "Display_ID  Config_Origin  Display_Origin\n");
+        
+        for( int i=0; i<STORED_CONFIG_VALUES; ++i ) {
+            for( int j=0; j<STORED_SYSTEM_VALUES; ++j ) {
+                // could just do a memcmp...
+                if( CONFIG_VALUES[i][0] == SYSTEM_VALUES[j][0] ) {
+                    
+                    if( CONFIG_VALUES[i][1] != SYSTEM_VALUES[j][1]
+                        || CONFIG_VALUES[i][2] != SYSTEM_VALUES[j][2] )
+                    {
+                        printf( "%d   %5d %5d    %5d %5d\n",
+                               CONFIG_VALUES[i][0], CONFIG_VALUES[i][1], CONFIG_VALUES[i][2],
+                               SYSTEM_VALUES[i][1], SYSTEM_VALUES[i][2] );
+                    }
 
-                break;
+                    break;
+                }
             }
         }
+    } else {
+        printf( "false" );
     }
     
     exit( 0 );
@@ -411,8 +423,9 @@ usage( void )
              "       %s -a (apply settings from file)\n"
              "       %s -c (compare current configuration to config file, apply changes if needed)\n"
              "       %s -t (test current configruations to config file, make no changes)\n"
+             "       %s -p (programatic test, return str of \"true\" if displays match config or \"false\" otherwise)\n"
              "       %s -s (save current configuration to config file)\n",
-             PROGNAME, PROGNAME, PROGNAME, PROGNAME, PROGNAME );
+             PROGNAME, PROGNAME, PROGNAME, PROGNAME, PROGNAME, PROGNAME );
     exit( 1 );
 }
 
@@ -424,7 +437,7 @@ main( int argc, char **argv )
     STORED_SYSTEM_VALUES = 0;
     
     int  i;
-    while ( ( i = getopt(argc, argv, "lacts" ) ) != -1 ) {
+    while ( ( i = getopt(argc, argv, "lactsp" ) ) != -1 ) {
         switch( i ) {
             case 'l':
                 listDisplays();
@@ -436,8 +449,10 @@ main( int argc, char **argv )
                 compareUpdatePositions();
                 break;
             case 't':
-                testComparePositions();
+                testComparePositions(true);
                 break;
+            case 'p':
+                testComparePositions(false);
             case 's':
                 savePositions();
                 break;

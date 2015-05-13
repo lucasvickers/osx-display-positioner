@@ -1,0 +1,39 @@
+# main binary path
+displaypositioner_bin: "./displaypositioner"
+
+# list of arguments to pass
+displaypositioner_args:
+    - "-p"
+
+# allows us to map the output from the yaml into logical true/false
+displaypositioner_output_translation:
+    "true": True,
+    "false": False
+
+# command we'll use to reboot the machine
+reboot_command: "ssh root@localhost sudo shutdown -r -t 10"
+
+# location of the reboot file
+reboot_history_file: "/tmp/displaywatcher.history"
+
+# max number of reboots allowed before we give up
+max_reboots: 3
+
+# email every time we reboot the system?
+email_all_reboots: True
+
+# email when we give up on rebooting?
+email_on_failure: True
+
+# email details
+sending_email: "sending@email.com"
+sending_name: "Sending name"
+receiving_email: "needstoknow@email.com"
+receiving_name: "Install Alerts"
+smtp_server: "smtp.email.net"
+smtp_username: "username"
+smtp_password: "pw"
+smtp_port: 587
+# TLS or SSL, SSL note yet supported
+smtp_encryption: "TLS"
+smtp_debug_trace: False

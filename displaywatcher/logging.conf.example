@@ -1,0 +1,33 @@
+[loggers]
+keys=root
+
+[logger_root]
+level=DEBUG
+handlers=console,file
+
+[formatters]
+keys=simple,complex
+
+[formatter_simple]
+format=%(asctime)s - %(levelname)s - %(module)s : %(message)s
+
+[formatter_complex]
+format=%(asctime)s - %(levelname)s - %(module)s : %(lineno)d - %(message)s
+
+[handlers]
+keys=console,file
+
+[handler_file]
+class=handlers.TimedRotatingFileHandler
+interval=midnight
+backupCount=90
+formatter=complex
+level=DEBUG
+# USER POPULATED, path and log file
+args=('/path/logs/logfile.log',)
+
+[handler_console]
+class=StreamHandler
+formatter=simple
+level=DEBUG
+args=(sys.stdout,)
