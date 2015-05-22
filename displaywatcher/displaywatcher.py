@@ -32,12 +32,12 @@ def check_monitors():
     try:
 
         positions_correct = check_display_positions(settings=settings)
-        previous_reboots = get_num_previous_reboots()
+        previous_reboots = get_num_previous_reboots(settings=settings)
 
         if positions_correct:
 
             logging.info("Display positions were correct, exiting normally.")
-            reset_history_file()
+            reset_history_file(settings=settings)
             return True
 
         if previous_reboots < settings['max_reboots']:
@@ -46,7 +46,7 @@ def check_monitors():
             logStr += " times of max " + str(settings['max_reboots']) + ", restarting system."
             logging.info(logStr)
 
-            set_history_file_count(count=previous_reboots + 1)
+            set_history_file_count(settings=settings, count=previous_reboots + 1)
             notify_of_reboot(settings=settings)
             reboot_system(settings=settings)
             return True
@@ -55,7 +55,7 @@ def check_monitors():
         logStr = "Rebooted " + str(previous_reboots) + " times without luck, giving up."
         logging.warn(logStr)
 
-        reset_history_file()
+        reset_history_file(settings=settings)
         notify_of_max_reboots(settings=settings)
         return True
 

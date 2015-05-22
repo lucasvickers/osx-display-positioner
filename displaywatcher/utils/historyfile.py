@@ -1,12 +1,10 @@
 import os
 import logging
 
-HISTORY_FILE = "/tmp/displaywatcher.history"
-
-def get_num_previous_reboots():
-    if os.path.exists(HISTORY_FILE):
+def get_num_previous_reboots(settings=None):
+    if os.path.exists(settings['reboot_history_file']):
         try:
-            with open(HISTORY_FILE, 'r') as infile:
+            with open(settings['reboot_history_file'], 'r') as infile:
                 restarts_str = infile.read()
                 restarts_int = int(restarts_str.strip())
                 return restarts_int
@@ -19,13 +17,13 @@ def get_num_previous_reboots():
     return 0
 
 
-def reset_history_file():
-    set_history_file_count(count=0)
+def reset_history_file(settings=None):
+    set_history_file_count(settings=settings, count=0)
 
 
-def set_history_file_count(count=None):
+def set_history_file_count(settings=None, count=None):
     try:
-        with open(HISTORY_FILE, 'w') as outfile:
+        with open(settings['reboot_history_file'], 'w') as outfile:
             if count is None:
                 raise Exception("count can not be None")
 
