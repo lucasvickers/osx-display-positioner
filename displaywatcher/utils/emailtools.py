@@ -3,6 +3,7 @@ from email.mime.text import MIMEText
 from datetime import datetime
 import email.utils
 import socket
+import logging
 
 
 def notify_of_reboot(settings=None):
@@ -40,24 +41,29 @@ def notify_of_error(settings=None, message=None):
 
 def send_email(settings=None, msg=None):
 
-    msg['To'] = email.utils.formataddr((settings['receiving_name'], settings['receiving_email']))
-    msg['From'] = email.utils.formataddr((settings['sending_name'], settings['sending_email']))
+    try:
+        msg['To'] = email.utils.formataddr((settings['receiving_name'], settings['receiving_email']))
+        msg['From'] = email.utils.formataddr((settings['sending_name'], settings['sending_email']))
 
-    server = smtplib.SMTP(settings['smtp_server'], settings['smtp_port'])
+        server = smtplib.SMTP(settings['smtp_server'], settings['smtp_port'])
 
-    # show communication with the server
-    server.set_debuglevel(settings['smtp_debug_trace'])
+        # show communication with the server
+        server.set_debuglevel(settings['smtp_debug_trace'])
 
-    server.ehlo()
-
-    if settings['smtp_encryption'].lower() == 'tls' and server.has_extn('STARTTLS'):
-        server.starttls()
         server.ehlo()
 
-    server.login(settings['smtp_username'], settings['smtp_password'])
+        if settings['smtp_encryption'].lower() == 'tls' and server.has_extn('STARTTLS'):
+            server.starttls()
+            server.ehlo()
 
-    try:
-        server.sendmail(settings['sending_email'], settings['receiving_email'], msg.as_string())
-    finally:
-        server.quit()
+        server.login(settings['smtp_username'], settings['smtp_password'])
+
+        try:
+            server.sendmail(settings['sending_email'], settings['receiving_email'], msg.as_string())
+        finally:
+            server.quit()
+
+    except Exception as e:
+        logging.exception("Error sending email.")
+        logging.exception(e)
 
