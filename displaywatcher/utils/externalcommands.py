@@ -29,5 +29,9 @@ def check_display_positions(settings=None):
 
 
 def reboot_system(settings=None):
-    os.system( settings['reboot_command'] )
+    try:
+        os.system( settings['reboot_command'] )
+    except Exception as e:
+        logging.exception(("Unable to reboot machine."))
+        logging.exception(e)
 
