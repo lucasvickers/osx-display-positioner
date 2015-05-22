@@ -14,7 +14,7 @@ displaypositioner_output_translation:
 reboot_command: "ssh root@localhost sudo shutdown -r -t 10"
 
 # location of the reboot file
-reboot_history_file: "/tmp/displaywatcher.history"
+reboot_history_file: "/path/to/displaywatcher.history"
 
 # max number of reboots allowed before we give up
 max_reboots: 3
