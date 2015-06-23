@@ -74,4 +74,10 @@ Stored 2 display settings to config.
 ### displaywatcher
 This is a python tool that will query the displaypositioner to see if the display is out of sync.  If it is, it will retempt a reboot upto X times.  It can notify via email on restarts/errors, etc.
 
-More documentation pending.
+More documentation pending, but a short description
+- update the config.yaml file
+- setup a launchd that starts a shell script once at startup
+- in that shell script, sleep 10 seconds, then invoke the python script
+
+The delay is to give the OS enough time to initialize the displays.
+Be sure to save the your display configurations using "displaypositioner -s"
