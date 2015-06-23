@@ -83,4 +83,5 @@ More documentation pending, but a short description
   - all email fields
 
 The delay is to give the OS enough time to initialize the displays.
-Be sure to save the your display configurations using "displaypositioner -s"
+
+! Be sure to save the your display configurations using "displaypositioner -s"
